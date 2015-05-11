@@ -1,0 +1,6 @@
+{
+    "name": "node-omron-hvc-p-test",
+    "dependencies": {
+        "serialport": "latest"
+    }
+}
