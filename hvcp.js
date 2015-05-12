@@ -34,7 +34,7 @@ HvcP.prototype.connect = function(path, options, callback) {
 	  	console.log('err...');
 	  });
 	  this.conn.on('data', this.onData.bind(this));
-	  callback && callback();
+	  callback && callback(null);
 	  // setTimeout(this.start.bind(this), 1000);
 	}.bind(this));
 }
@@ -168,7 +168,7 @@ HvcP.prototype.parseFaceData = function(size, data) {
 	var result = [];
 
 	for (var i = 0; i < size; ++i) {
-		var d = data.slice(i * 31, i * 31 + 31);
+		var d = data.slice(i * 38, i * 38 + 38);
 
 		var r = {};
 		r.x              = d.readInt16LE(0); 
@@ -209,30 +209,18 @@ HvcP.prototype.parseFaceData = function(size, data) {
 		r.blink.ratioR   = d.readInt16LE(26);
 
 		r.exp = {};
-		var exp = d.readInt8(28);
-		switch(exp) {
-		case 1:
-			r.exp.expression = "neutral";
-			break;
-		case 2:
-			r.exp.expression = "happiness";
-			break;
-		case 3:
-			r.exp.expression = "surprise";
-			break;
-		case 4:
-			r.exp.expression = "anger";
-			break;
-		case 5:
-			r.exp.expression = "sadness";
-			break;
-		default:
-			r.exp.expression = "unknown";
-			break;
-		}
-	
-		r.exp.score      = d.readInt8(29);
-		r.exp.degree     = d.readInt8(30);
+		r.exp.neutralness = d.readInt8(28);
+		r.exp.happiness = d.readInt8(29);
+		r.exp.surpriseness = d.readInt8(30);
+		r.exp.angriness = d.readInt8(31);
+		r.exp.sadness = d.readInt8(32);
+		r.exp.negaposi = d.readInt8(33);
+
+		r.user = {};
+		r.user.id = d.readInt16LE(34);
+		r.user.score = d.readInt16LE(36);
+
+		console.log(r);
 	
 		result.push(r);
 	}
@@ -241,32 +229,24 @@ HvcP.prototype.parseFaceData = function(size, data) {
 }
 
 HvcP.prototype.parseExecuteResult = function(data) {
-	//
-	//  detection result payload format
-	//      header(4byte)
-	//      body_data(8byte) * body_num
-	//      hand_data(8byte) * hand_num
-	//      face_data(2～31byte) * face_num
-	//
-
 	// header
-	var body_num = data.readUInt8(0);
-	var hand_num = data.readUInt8(1);
-	var face_num = data.readUInt8(2);
+	var bodyNum = data.readUInt8(0);
+	var handNum = data.readUInt8(1);
+	var faceNum = data.readUInt8(2);
 
 	var idx = 4;
-	body_data = data.slice(idx, idx + 8 * body_num);
+	bodyData = data.slice(idx, idx + 8 * bodyNum);
 
-	idx += body_data.length
-	hand_data = data.slice(idx, idx + 8 * hand_num);
+	idx += bodyData.length
+	handData = data.slice(idx, idx + 8 * handNum);
 
-	idx += hand_data.length
-	face_data = data.slice(idx, idx + 31 * face_num);
+	idx += handData.length
+	faceData = data.slice(idx, idx + 38 * faceNum);
 
 	result = {};
-	result.body = this.parseBodyData(body_num, body_data);
-	result.hand = this.parseHandData(hand_num, hand_data);
-	result.face = this.parseFaceData(face_num, face_data);
+	result.body = this.parseBodyData(bodyNum, bodyData);
+	result.hand = this.parseHandData(handNum, handData);
+	result.face = this.parseFaceData(faceNum, faceData);
 
 	return result;
 }
@@ -289,10 +269,10 @@ HvcP.prototype.detect = function(callback) {
 
 	var buf = new Buffer(7);
 	buf[0] = 0xfe;
-	buf[1] = 0x03;
+	buf[1] = 0x04;
 	buf.writeUInt16LE(3, 2); // data length
 	buf.writeUInt8(0xfc, 4); // (disable body & hands detection...)
-	buf.writeUInt8(0x01, 5); 
+	buf.writeUInt8(0x03, 5); // enable face recognition
 	buf.writeUInt8(0x00, 6); 
 
 	this.sendCommand(buf);
