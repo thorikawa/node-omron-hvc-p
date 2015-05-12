@@ -1,25 +1,13 @@
-var SerialPort = require("serialport").SerialPort
-var serialPort = new SerialPort("/dev/tty.usbserial-A603A1OQ", {
-  baudrate: 921600
-});
-serialPort.on("open", function () {
-  console.log('open');
-  serialPort.on('data', function(data) {
-    console.log('data received: ' + data.length + ' bytes');
-    console.log(data.toString('hex'));
-  });
-  serialPort.write(new Buffer('fe000000', 'hex'), function(err, results) {
-    console.log('err ' + err);
-    console.log('results ' + results);
-  });
-  // serialPort.write(new Buffer('FE', 'hex'));
-  // serialPort.write(new Buffer('00', 'hex'));
-  // serialPort.write(new Buffer('00', 'hex'));
-  // serialPort.write(new Buffer('00', 'hex'));
-  // serialPort.write(new Buffer('FE000000', 'hex'), function(err, results) {
-  //   console.log('err ' + err);
-  //   console.log('results ' + results);
-  // });
+var hvcp = require('./hvcp');
+var async = require('async');
 
-});
+var device = new hvcp();
 
+async.series([
+  device.connect.bind(device, '/dev/tty.usbserial-A603A1OQ'),
+  device.getVersion.bind(device),
+  device.setCameraOrientation.bind(device, 0),
+  device.detect.bind(device)
+], function(err, results) {
+  console.log(results);
+});
