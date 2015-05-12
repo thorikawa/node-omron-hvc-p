@@ -13,10 +13,8 @@ var HvcP = function() {
 
 HvcP.prototype.connect = function(path, options, callback) {
 	var args = Array.prototype.slice.call(arguments);
-    callback = args.pop();
-    if (typeof (callback) !== 'function') {
-      callback = null;
-    }
+	callback = args.pop();
+	if (typeof (callback) !== 'function') callback = null;
 
 	options = options || {};
 	var baudrate = options.baudrate || 921600;
@@ -228,7 +226,16 @@ HvcP.prototype.parseFaceData = function(size, data) {
 	return result;
 }
 
-HvcP.prototype.parseExecuteResult = function(data) {
+HvcP.prototype.parseImage = function(data) {
+	var r = {};
+	r.width = data.readUInt16LE(0);
+	r.height = data.readUInt16LE(2);
+	r.data = data.slice(4, data.length - 4);
+	console.log(r);
+	return r;
+}
+
+HvcP.prototype.parseExecuteResult = function(data, options) {
 	// header
 	var bodyNum = data.readUInt8(0);
 	var handNum = data.readUInt8(1);
@@ -243,22 +250,40 @@ HvcP.prototype.parseExecuteResult = function(data) {
 	idx += handData.length
 	faceData = data.slice(idx, idx + 38 * faceNum);
 
+	idx += faceData.length;
+
 	result = {};
-	result.body = this.parseBodyData(bodyNum, bodyData);
-	result.hand = this.parseHandData(handNum, handData);
-	result.face = this.parseFaceData(faceNum, faceData);
+	result.body = this.parseBodyData(bodyNum, bodyData, options);
+	result.hand = this.parseHandData(handNum, handData, options);
+	result.face = this.parseFaceData(faceNum, faceData, options);
+	if (options.enableImage) {
+		imageData = data.slice(idx, idx + 76804);
+		result.image = this.parseImage(imageData, options);
+	} else if (options.enableImageSmall) {
+		imageData = data.slice(idx, idx + 19204);
+		result.image = this.parseImage(imageData, options);
+	}
 
 	return result;
 }
 
-HvcP.prototype.detect = function(callback) {
-	console.log('hccv_execute()');
+HvcP.prototype.parseFaceRegisterData = function(data, options) {
+	var r = {};
+	r.width = data.readUInt16LE(0);
+	r.height = data.readUInt16LE(2);
+	r.data = data.slice(4, data.length - 4);
+	return r;
+}
+
+HvcP.prototype.detect = function(options, callback) {
+	var args = Array.prototype.slice.call(arguments);
+	callback = args.pop();
+	if (typeof (callback) !== 'function') callback = null;
+	options = options || {};
 
 	this.onResponse = function(responseCode, data) {
-		console.log("hccv_execute() : responseCode = " + responseCode);
-
-		result = this.parseExecuteResult(data);
-
+		console.log("detect: responseCode = " + responseCode);
+		result = this.parseExecuteResult(data, options);
 		if (callback) {
 			callback(null, {
 				"responseCode": responseCode,
@@ -273,7 +298,42 @@ HvcP.prototype.detect = function(callback) {
 	buf.writeUInt16LE(3, 2); // data length
 	buf.writeUInt8(0xfc, 4); // (disable body & hands detection...)
 	buf.writeUInt8(0x03, 5); // enable face recognition
-	buf.writeUInt8(0x00, 6); 
+	var imageBit = 0x00;
+	if (options.enableImage) {
+		imageBit = 0x01;
+	} else if (options.enableImageSmall) {
+		imageBit = 0x02;
+	}
+	buf.writeUInt8(imageBit, 6);
+
+	this.sendCommand(buf);
+}
+
+HvcP.prototype.registerFace = function(userId, dataId, callback) {
+	this.onResponse = function(responseCode, data) {
+		console.log("face_register: responseCode = " + responseCode);
+		if (responseCode == 1) {
+			callback("Error: detected no face to register.");
+			return;
+		} else if (responseCode == 2) {
+			callback("Error: detected more than one face to register.");
+			return;
+		}
+		result = this.parseFaceRegisterData(data);
+		if (callback) {
+			callback(null, {
+				"responseCode": responseCode,
+				"result": result
+			});
+		}
+	};
+
+	var buf = new Buffer(7);
+	buf[0] = 0xfe;
+	buf[1] = 0x10;
+	buf.writeUInt16LE(3, 2); // data length
+	buf.writeUInt16LE(userId, 4);
+	buf.writeUInt8(dataId, 6);
 
 	this.sendCommand(buf);
 }
