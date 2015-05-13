@@ -2,6 +2,7 @@
     "name": "node-omron-hvc-p-test",
     "dependencies": {
         "serialport": "latest",
-        "async": "latest"
+        "async": "latest",
+        "crc": "latest"
     }
 }

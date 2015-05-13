@@ -55,10 +55,8 @@ HvcP.prototype.onData = function(data) {
 	var data_len = this.buffer.readUInt32LE(2);
 	var response_len = 1 + 1 + 4 + data_len;
 	if (this.buffer.length < response_len) {
-		// nothing to do...
 		return;
-	}
-	else if (this.buffer.length > response_len) {
+	} else if (this.buffer.length > response_len) {
 		console.log("invalid response data...");
 		this.clearBuffer();
 		return;
@@ -74,7 +72,7 @@ HvcP.prototype.onData = function(data) {
 
 HvcP.prototype.sendCommand = function(buf) {
 	this.clearBuffer();
-	console.log('hvcc_send_cmd() : buf=' + buf.toString('hex'));
+	// console.log('send_cmd() : buf=' + buf.toString('hex'));
 	this.conn.write(buf)
 }
 
@@ -89,11 +87,13 @@ HvcP.prototype.getVersion = function(callback) {
 		if (callback) {
 			callback(null, {
 				"responseCode" : responseCode,
-				"model": model,
-				"majorVersion": majorVersion,
-				"minorVersion": minorVersion,
-				"releaseVersion": releaseVersion,
-				"revision": revision
+				"data" : {
+					"model": model,
+					"majorVersion": majorVersion,
+					"minorVersion": minorVersion,
+					"releaseVersion": releaseVersion,
+					"revision": revision
+				}
 			});
 		}
 	};
@@ -230,8 +230,7 @@ HvcP.prototype.parseImage = function(data) {
 	var r = {};
 	r.width = data.readUInt16LE(0);
 	r.height = data.readUInt16LE(2);
-	r.data = data.slice(4, data.length - 4);
-	console.log(r);
+	r.data = data.slice(4, data.length);
 	return r;
 }
 
@@ -271,7 +270,26 @@ HvcP.prototype.parseFaceRegisterData = function(data, options) {
 	var r = {};
 	r.width = data.readUInt16LE(0);
 	r.height = data.readUInt16LE(2);
-	r.data = data.slice(4, data.length - 4);
+	r.data = data.slice(4);
+	return r;
+}
+
+HvcP.prototype.parseReadAlbumResult = function(data) {
+	var r = {};
+	r.size = data.readUInt32LE(0);
+	r.crc = data.readUInt32LE(4);
+	r.album = data.slice(8);
+	return r;
+}
+
+HvcP.prototype.parseRegisteredData = function(data) {
+	var r = {};
+	var flag = data.readUInt16LE(0);
+	r.flag = [];
+	for (var i=0; i<10; ++i) {
+		r.flag.push((flag & (1 << i)) > 0);
+	}
+	console.log(r.flag);
 	return r;
 }
 
@@ -287,7 +305,7 @@ HvcP.prototype.detect = function(options, callback) {
 		if (callback) {
 			callback(null, {
 				"responseCode": responseCode,
-				"result": result
+				"data": result
 			});
 		}
 	};
@@ -323,7 +341,7 @@ HvcP.prototype.registerFace = function(userId, dataId, callback) {
 		if (callback) {
 			callback(null, {
 				"responseCode": responseCode,
-				"result": result
+				"data": result
 			});
 		}
 	};
@@ -334,6 +352,115 @@ HvcP.prototype.registerFace = function(userId, dataId, callback) {
 	buf.writeUInt16LE(3, 2); // data length
 	buf.writeUInt16LE(userId, 4);
 	buf.writeUInt8(dataId, 6);
+
+	this.sendCommand(buf);
+}
+
+HvcP.prototype.deleteAllFaces = function(callback) {
+	this.onResponse = function(responseCode, data) {
+		var error = null;
+		console.log("delete_all_faces: responseCode = " + responseCode);
+		if (responseCode != 0) {
+			error = "Error: unknown error: " + responseCode;
+		}
+		if (callback) {
+			callback(error, {
+				"responseCode": responseCode
+			});
+		}
+	};
+
+	this.sendCommand(new Buffer('fe130000', 'hex'));
+}
+
+HvcP.prototype.checkRegisteredData = function(userId, callback) {
+	this.onResponse = function(responseCode, data) {
+		console.log("face_register: responseCode = " + responseCode);
+		if (responseCode == 1) {
+			callback("Error: detected no face to register.");
+			return;
+		} else if (responseCode == 2) {
+			callback("Error: detected more than one face to register.");
+			return;
+		}
+		result = this.parseRegisteredData(data);
+		if (callback) {
+			callback(null, {
+				"responseCode": responseCode,
+				"data": result
+			});
+		}
+	};
+
+	var buf = new Buffer(6);
+	buf[0] = 0xfe;
+	buf[1] = 0x15;
+	buf.writeUInt16LE(2, 2);
+	buf.writeUInt16LE(userId, 4);
+
+	this.sendCommand(buf);
+}
+
+HvcP.prototype.saveFlashRom = function(callback) {
+	this.onResponse = function(responseCode, data) {
+		var error = null;
+		console.log("save_flash_rom: responseCode = " + responseCode);
+		if (responseCode != 0) {
+			error = "Error: unknown error: " + responseCode;
+		}
+		if (callback) {
+			callback(error, {
+				"responseCode": responseCode
+			});
+		}
+	};
+
+	this.sendCommand(new Buffer('fe220000', 'hex'));
+}
+
+HvcP.prototype.readAlbum = function(callback) {
+	this.onResponse = function(responseCode, data) {
+		var error = null;
+		var result = null;
+		console.log("raed_album: responseCode = " + responseCode);
+		if (responseCode != 0) {
+			error = "Error: unknown error: " + responseCode;
+		} else {
+			result = this.parseReadAlbumResult(data);
+		}
+		if (callback) {
+			callback(error, {
+				"responseCode": responseCode,
+				"data": result
+			});
+		}
+	};
+
+	this.sendCommand(new Buffer('fe200000', 'hex'));
+}
+
+HvcP.prototype.loadAlbum = function(albumData, crc, callback) {
+	this.onResponse = function(responseCode, data) {
+		var error = null;
+		console.log("load_album: responseCode = " + responseCode);
+		if (responseCode != 0) {
+			error = "Error: unknown error: " + responseCode;
+		}
+		if (callback) {
+			callback(error, {
+				"responseCode": responseCode
+			});
+		}
+	};
+
+	var buf = new Buffer(16);
+	buf[0] = 0xfe;
+	buf[1] = 0x21;
+	buf.writeUInt32LE(4, 2);
+	buf.writeUInt32LE(albumData.length + 8, 4);
+	buf.writeUInt32LE(albumData.length, 8);
+	buf.writeUInt32LE(crc, 12);
+	buf = Buffer.concat([buf, albumData])
 
 	this.sendCommand(buf);
 }
