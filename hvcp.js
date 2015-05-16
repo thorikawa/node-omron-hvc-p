@@ -52,6 +52,9 @@ HvcP.prototype.onData = function(data) {
 	}
 
 	// check payload length
+	if (this.buffer.length < 6) {
+		return;
+	}
 	var data_len = this.buffer.readUInt32LE(2);
 	var response_len = 1 + 1 + 4 + data_len;
 	if (this.buffer.length < response_len) {
