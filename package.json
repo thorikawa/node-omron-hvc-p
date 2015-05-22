@@ -1,8 +1,9 @@
 {
-    "name": "node-omron-hvc-p-test",
+    "name": "node-omron-hvc-p",
+    "private": "true",
+    "version": "0.0.1",
+    "main": "hvcp.js",
     "dependencies": {
-        "serialport": "latest",
-        "async": "latest",
-        "crc": "latest"
+        "serialport": "latest"
     }
 }

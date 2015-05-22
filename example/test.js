@@ -12,14 +12,14 @@ async.series([
   device.getVersion.bind(device),
   device.setCameraOrientation.bind(device, 0),
   // device.detect.bind(device, {"enableImageSmall": true}),
-  device.detect.bind(device),
-  device.registerFace.bind(device, 0, 2),
-  // device.checkRegisteredData.bind(device, 0),
+  // device.detect.bind(device),
+  // device.registerFace.bind(device, 0, 0),
+  device.checkRegisteredData.bind(device, 2),
   // device.deleteAllFaces.bind(device),
   function(callback) {
     device.readAlbum(function(err, result) {
-      // console.log(result);
-      device.loadAlbum(result.data.album, result.data.crc, callback);
+      console.log(result);
+      // device.loadAlbum(result.data.album, result.data.crc, callback);
     });
   },
 ], function(err, results) {
