@@ -1,9 +1,27 @@
 {
-    "name": "node-omron-hvc-p",
-    "private": "true",
-    "version": "0.0.1",
-    "main": "hvcp.js",
-    "dependencies": {
-        "serialport": "latest"
-    }
+  "name": "node-omron-hvc-p",
+  "private": "true",
+  "version": "0.0.1",
+  "main": "hvcp.js",
+  "dependencies": {
+    "serialport": "^3.1.2"
+  },
+  "description": "node-omron-hvc-p ==== Node module for controlling OMRON HVC-P",
+  "directories": {
+    "example": "example"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thorikawa/node-omron-hvc-p.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/thorikawa/node-omron-hvc-p/issues"
+  },
+  "homepage": "https://github.com/thorikawa/node-omron-hvc-p#readme"
 }
